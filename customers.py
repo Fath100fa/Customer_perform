@@ -25,9 +25,7 @@ print(data.head())
 print("\nMissing values:")
 print(data.isnull().sum())
 
-# Convert categorical variables to numeric if needed
-# This step depends on your specific dataset structure
-# For demonstration, we'll assume we need to preprocess some columns
+
 
 # Select only numeric columns for clustering
 numeric_cols = data.select_dtypes(include=['float64', 'int64']).columns.tolist()
@@ -154,6 +152,75 @@ hierarchical_silhouette = silhouette_score(X_scaled, hierarchical_labels)
 
 print(f"K-medoids Silhouette Score: {kmedoids_silhouette:.4f}")
 print(f"Hierarchical Silhouette Score: {hierarchical_silhouette:.4f}")
+
+# Additional simple evaluation metrics
+print("\n--- Additional Evaluation Metrics ---")
+
+# Calculate inertia (sum of distances to closest centroid) for K-medoids
+kmedoids_inertia = sum(np.min(pairwise_distances(X_scaled, kmedoids.cluster_centers_), axis=1))
+print(f"K-medoids Inertia: {kmedoids_inertia:.4f}")
+
+# Calculate within-cluster variance for each method
+kmedoids_variances = []
+for i in range(optimal_k):
+    cluster_points = X_scaled[kmedoids_labels == i]
+    if len(cluster_points) > 0:  # Ensure cluster is not empty
+        variance = np.mean(np.var(cluster_points, axis=0))
+        kmedoids_variances.append(variance)
+print(f"K-medoids Average Within-Cluster Variance: {np.mean(kmedoids_variances):.4f}")
+
+hierarchical_variances = []
+for i in range(optimal_k):
+    cluster_points = X_scaled[hierarchical_labels == i]
+    if len(cluster_points) > 0:  # Ensure cluster is not empty
+        variance = np.mean(np.var(cluster_points, axis=0))
+        hierarchical_variances.append(variance)
+print(f"Hierarchical Average Within-Cluster Variance: {np.mean(hierarchical_variances):.4f}")
+
+# Calculate between-cluster separation
+def calculate_between_cluster_distance(centers):
+    n_centers = centers.shape[0]
+    distances = []
+    for i in range(n_centers):
+        for j in range(i+1, n_centers):
+            dist = np.linalg.norm(centers[i] - centers[j])
+            distances.append(dist)
+    return np.mean(distances) if distances else 0
+
+# Calculate cluster centers for hierarchical clustering
+hierarchical_centers = np.array([X_scaled[hierarchical_labels == i].mean(axis=0) for i in range(optimal_k)])
+
+# Calculate between-cluster distances
+kmedoids_between = calculate_between_cluster_distance(kmedoids.cluster_centers_)
+hierarchical_between = calculate_between_cluster_distance(hierarchical_centers)
+
+print(f"K-medoids Between-Cluster Average Distance: {kmedoids_between:.4f}")
+print(f"Hierarchical Between-Cluster Average Distance: {hierarchical_between:.4f}")
+
+# Calculate percentage of variance explained by clustering
+def calculate_variance_explained(X, labels):
+    # Total variance
+    total_variance = np.sum(np.var(X, axis=0))
+    
+    # Within-cluster variance
+    within_variance = 0
+    unique_labels = np.unique(labels)
+    for label in unique_labels:
+        cluster_points = X[labels == label]
+        within_variance += np.sum(np.var(cluster_points, axis=0)) * len(cluster_points)
+    within_variance /= len(X)
+    
+    # Between-cluster variance is the difference
+    between_variance = total_variance - within_variance
+    
+    # Percentage explained
+    return (between_variance / total_variance) * 100 if total_variance > 0 else 0
+
+kmedoids_explained = calculate_variance_explained(X_scaled, kmedoids_labels)
+hierarchical_explained = calculate_variance_explained(X_scaled, hierarchical_labels)
+
+print(f"K-medoids Percentage of Variance Explained: {kmedoids_explained:.2f}%")
+print(f"Hierarchical Percentage of Variance Explained: {hierarchical_explained:.2f}%")
 
 # 6. Analysis of Clusters
 print("\n--- Cluster Analysis ---")
